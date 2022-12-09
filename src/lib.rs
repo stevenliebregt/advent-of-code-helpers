@@ -1,1 +1,1 @@
-pub mod vector_2d;
+pub mod vec2d;
