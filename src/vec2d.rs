@@ -64,38 +64,25 @@ impl<T> Vec2D<T> {
     where
         T: Default + Debug,
     {
-        // dbg!(&self);
-
         // If empty add at least one
         if self.inner.is_empty() {
             self.inner.push(T::default());
             self.set_size(1, 1);
         }
 
-        // TODO: Reserve, and this goes wrong when height > 1
         if column >= self.width {
-            // println!("growing width");
-
             let missing = (column - self.width) + 1;
 
             // Extend capacity
             self.inner.reserve(missing * self.height);
 
-            // for _ in 0..missing {
             for i in 0..self.height {
-                // println!("should grow row {i} by {missing}");
                 for _ in 0..missing {
-                    // println!("\tinsertion at: {:?}", self.width * (i + 1));
                     self.inner
                         .insert(self.width * (i + 1) + (i * missing), T::default());
                 }
-                // dbg!(&self);
             }
 
-            // println!("mssing = {missing}, insert {i}");
-            // self.inner.insert(self.width * i, T::default());
-            // // self.push(T::default())
-            // }
             self.width += missing;
         }
 
@@ -112,8 +99,6 @@ impl<T> Vec2D<T> {
             }
             self.height += missing;
         }
-
-        // dbg!(&self);
 
         self.at_mut(row, column)
     }
@@ -189,42 +174,41 @@ mod tests {
         assert_eq!(expected, vec2d);
 
         *vec2d.growing_at_mut(2, 2) = 2;
-        let expected = Vec2D::from(vec![
-            1, 0, 0, //
-            0, 0, 0, //
-            0, 0, 2, //
-        ], 3, 3);
+        let expected = Vec2D::from(
+            vec![
+                1, 0, 0, //
+                0, 0, 0, //
+                0, 0, 2, //
+            ],
+            3,
+            3,
+        );
         assert_eq!(expected, vec2d);
 
         *vec2d.growing_at_mut(2, 4) = 3;
-        let expected = Vec2D::from(vec![
-            1, 0, 0, 0, 0, //
-            0, 0, 0, 0, 0, //
-            0, 0, 2, 0, 3, //
-        ], 5, 3);
-    }
+        let expected = Vec2D::from(
+            vec![
+                1, 0, 0, 0, 0, //
+                0, 0, 0, 0, 0, //
+                0, 0, 2, 0, 3, //
+            ],
+            5,
+            3,
+        );
+        assert_eq!(expected, vec2d);
 
-    // #[test]
-    // fn growing_works_2() {
-    //     let mut vec2d: Vec2D<i32> = Vec2D::from(vec![
-    //         1, 0, 0, // Row 1
-    //         0, 2, 0, // Row 2
-    //         0, 0, 3, // Row 3
-    //     ], 3, 3);
-    //
-    //     *vec2d.growing_at_mut(2, 4) = 4;
-    //
-    //     // // TODO: Something wrong, expect
-    //     // // 1, 0, 0, 0, 0
-    //     // // 0, 1, 0, 0, 0
-    //     // // 0, 0, 1, 0, 1
-    //     //
-    //     dbg!(&vec2d);
-    //     //
-    //     // println!("--");
-    //     //
-    //     // *vec2d.growing_at_mut(4, 2) = 1;
-    //     //
-    //     // dbg!(&vec2d);
-    // }
+        *vec2d.growing_at_mut(4, 1) = 4;
+        let expected = Vec2D::from(
+            vec![
+                1, 0, 0, 0, 0, //
+                0, 0, 0, 0, 0, //
+                0, 0, 2, 0, 3, //
+                0, 0, 0, 0, 0, //
+                0, 4, 0, 0, 0, //
+            ],
+            5,
+            5,
+        );
+        assert_eq!(expected, vec2d);
+    }
 }
