@@ -124,8 +124,16 @@ impl<T> Vec2D<T> {
 
             // Grow every row
             for i in (0..self.height + self.negative_height).rev() {
-                let index = self.to_index(i as isize, 0);
+                // let mut index = self.to_index(i as isize, 0);
+                // println!("\tgrowing row = {i} @ {index}");
+                //
+                // // TODO: Check
+                // index = index.saturating_sub(self.negative_width + self.width);
+                // println!("\t\tindex_mod = {index}");
+
+                let index = i * (self.width + self.negative_width);
                 println!("\tgrowing row = {i} @ {index}");
+
                 for _ in 0..missing {
                     self.inner.insert(index, T::default());
                 }
