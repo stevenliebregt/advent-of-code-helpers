@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 #[derive(Default, Eq, PartialEq)]
 pub struct Vec2D<T> {
     inner: Vec<T>,
-    width: usize,
-    height: usize,
+    positive_width: usize,
+    positive_height: usize,
     negative_width: usize,
     negative_height: usize,
 }
@@ -17,8 +17,8 @@ impl<T> Vec2D<T> {
     pub fn with_capacity_and_size(capacity: usize, width: usize, height: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
-            width,
-            height,
+            positive_width: width,
+            positive_height: height,
             negative_width: 0,
             negative_height: 0,
         }
@@ -27,8 +27,8 @@ impl<T> Vec2D<T> {
     pub fn from(data: Vec<T>, width: usize, height: usize) -> Self {
         Self {
             inner: data,
-            width,
-            height,
+            positive_width: width,
+            positive_height: height,
             negative_width: 0,
             negative_height: 0,
         }
@@ -43,8 +43,8 @@ impl<T> Vec2D<T> {
     ) -> Self {
         Self {
             inner: data,
-            width,
-            height,
+            positive_width: width,
+            positive_height: height,
             negative_width,
             negative_height,
         }
@@ -71,6 +71,7 @@ impl<T> Vec2D<T> {
         &mut self.inner[index]
     }
 
+    // TODO: Ensure that we reserve enough space at each step according to negative_width and height
     pub fn growing_at_mut(&mut self, row: isize, column: isize) -> &mut T
     where
         T: Default + Debug,
@@ -82,37 +83,37 @@ impl<T> Vec2D<T> {
         }
 
         // Check if we need to grow in the positive axis
-        if column >= self.width as isize {
-            let missing = (column as usize - self.width) + 1;
+        if column >= self.positive_width as isize {
+            let missing = (column as usize - self.positive_width) + 1;
 
             // Extend capacity
             self.inner
-                .reserve(missing * (self.height + self.negative_height));
+                .reserve(missing * (self.positive_height + self.negative_height));
 
-            for i in 0..self.height {
+            for i in 0..self.positive_height {
                 for _ in 0..missing {
                     self.inner
-                        .insert(self.width * (i + 1) + (i * missing), T::default());
+                        .insert(self.positive_width * (i + 1) + (i * missing), T::default());
                 }
             }
 
-            self.width += missing;
+            self.positive_width += missing;
         }
 
-        if row >= self.height as isize {
-            let missing = (row as usize - self.height) + 1;
+        if row >= self.positive_height as isize {
+            let missing = (row as usize - self.positive_height) + 1;
 
             // Extend capacity
             self.inner
-                .reserve(missing * (self.width + self.negative_width));
+                .reserve(missing * (self.positive_width + self.negative_width));
 
             for _ in 0..missing {
-                for _ in 0..self.width {
+                for _ in 0..self.positive_width {
                     self.push(T::default());
                 }
             }
 
-            self.height += missing;
+            self.positive_height += missing;
         }
 
         // Check if we need to grow in negative axis
@@ -123,7 +124,7 @@ impl<T> Vec2D<T> {
             // TODO: reserve
 
             // Grow every row
-            for i in (0..self.height + self.negative_height).rev() {
+            for i in (0..self.positive_height + self.negative_height).rev() {
                 // let mut index = self.to_index(i as isize, 0);
                 // println!("\tgrowing row = {i} @ {index}");
                 //
@@ -131,7 +132,7 @@ impl<T> Vec2D<T> {
                 // index = index.saturating_sub(self.negative_width + self.width);
                 // println!("\t\tindex_mod = {index}");
 
-                let index = i * (self.width + self.negative_width);
+                let index = i * (self.positive_width + self.negative_width);
                 println!("\tgrowing row = {i} @ {index}");
 
                 for _ in 0..missing {
@@ -149,7 +150,7 @@ impl<T> Vec2D<T> {
             // TODO: reserve
 
             // Grow every column
-            for i in 0..self.width + self.negative_width {
+            for i in 0..self.positive_width + self.negative_width {
                 let index = self.to_index(0, i as isize);
                 // println!("\tgrowing column = {i} @ {index}");
                 for _ in 0..missing {
@@ -201,12 +202,12 @@ impl<T> Vec2D<T> {
     }
 
     pub fn set_size(&mut self, width: usize, height: usize) {
-        self.width = width;
-        self.height = height;
+        self.positive_width = width;
+        self.positive_height = height;
     }
 
     pub fn size(&self) -> (usize, usize) {
-        (self.width, self.height)
+        (self.positive_width, self.positive_height)
     }
 
     #[inline]
@@ -214,7 +215,7 @@ impl<T> Vec2D<T> {
         let row_adjusted = (row + self.negative_height as isize) as usize;
         let column_adjusted = (column + self.negative_width as isize) as usize;
 
-        let adjusted_index = (row_adjusted * (self.width + self.negative_width)) + column_adjusted;
+        let adjusted_index = (row_adjusted * (self.positive_width + self.negative_width)) + column_adjusted;
 
         adjusted_index
     }
@@ -228,14 +229,14 @@ where
         let mut inner_format: Vec<String> = Vec::new();
 
         if !self.inner.is_empty() {
-            for chunk in self.inner.chunks(self.width + self.negative_width) {
+            for chunk in self.inner.chunks(self.positive_width + self.negative_width) {
                 inner_format.push(format!("{chunk:?}"));
             }
         }
 
         f.debug_struct(&format!("Vec2D<{}>", std::any::type_name::<T>()))
-            .field("width", &self.width)
-            .field("height", &self.height)
+            .field("width", &self.positive_width)
+            .field("height", &self.positive_height)
             .field("negative_width", &self.negative_width)
             .field("negative_height", &self.negative_height)
             .field("inner", &inner_format)
@@ -321,6 +322,24 @@ mod tests {
         // TODO: Grow with negative width and negative height
 
         #[test]
+        fn growing_width_with_negative_height_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from_negative(vec![
+                1, 2, //
+                3, 4, //
+                5, 6, //
+            ], 2, 1, 0, 2);
+
+            *vec2d.growing_at_mut(-1, 3) = 9;
+
+            let expected = Vec2D::from_negative(vec![
+                1, 2, 0, 9, //
+                3, 4, 0, 0, //
+                5, 6, 0, 0, //
+            ],4, 1, 0, 2);
+            assert_eq!(expected, vec2d);
+        }
+
+        #[test]
         fn growing_width_with_negative_width_works() {
             let mut vec2d: Vec2D<i32> = Vec2D::from_negative(vec![1, 0], 1, 1, 1, 0);
 
@@ -370,7 +389,6 @@ mod tests {
             assert_eq!(expected, vec2d);
         }
 
-        // TODO: Growing to negative width with negative height
         #[test]
         fn growing_to_negative_width_with_negative_height() {
             let mut vec2d: Vec2D<i32> = Vec2D::from_negative(
@@ -526,6 +544,24 @@ mod tests {
             );
             assert_eq!(expected, vec2d);
         }
+
+        #[test]
+        fn growing_height_with_negative_width_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from_negative(vec![
+                1, 2, 3, //
+            ], 1, 1, 2, 0);
+
+            *vec2d.growing_at_mut(2, -1) = 9;
+
+            let expected = Vec2D::from_negative(vec![
+                1, 2, 3, //
+                0, 0, 0, //
+                0, 9, 0, //
+            ], 1, 3, 2, 0);
+            assert_eq!(expected, vec2d);
+        }
+
+        // TODO: Same as above but also negative height
     }
 
     #[test]
