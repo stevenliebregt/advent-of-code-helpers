@@ -108,7 +108,7 @@ impl<T> Vec2D<T> {
                 .reserve(missing * (self.positive_width + self.negative_width));
 
             for _ in 0..missing {
-                for _ in 0..self.positive_width {
+                for _ in 0..(self.positive_width + self.negative_width) {
                     self.push(T::default());
                 }
             }
