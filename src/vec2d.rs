@@ -90,7 +90,7 @@ impl<T> Vec2D<T> {
             self.inner
                 .reserve(missing * (self.positive_height + self.negative_height));
 
-            for i in 0..self.positive_height {
+            for i in 0..(self.positive_height + self.negative_height) {
                 for _ in 0..missing {
                     self.inner
                         .insert(self.positive_width * (i + 1) + (i * missing), T::default());
@@ -329,7 +329,7 @@ mod tests {
                 5, 6, //
             ], 2, 1, 0, 2);
 
-            *vec2d.growing_at_mut(-1, 3) = 9;
+            *vec2d.growing_at_mut(-2, 3) = 9;
 
             let expected = Vec2D::from_negative(vec![
                 1, 2, 0, 9, //
@@ -662,6 +662,18 @@ mod tests {
 
             // We want L
             assert_eq!(11, vec2d.to_index(0, 1), "Invalid index for L");
+        }
+
+        #[test]
+        fn case_special() {
+            let vec2d = Vec2D::from_negative(vec![
+                1, 2, 0, 9, //
+                3, 4, 0, 0, //
+                5, 6, 0, 0, //
+            ],4, 1, 0, 2);
+
+            // We want the 9
+            assert_eq!(3, vec2d.to_index(-2, 3));
         }
     }
 }
