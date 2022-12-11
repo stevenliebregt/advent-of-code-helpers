@@ -65,17 +65,6 @@ impl<T> Vec2D<T> {
         &mut self.inner[index]
     }
 
-    // pub fn at_range(&self, from: (usize, usize), to: (usize, usize)) -> &[T] {
-    //     &self.inner[self.to_index(from.0, from.1)..self.to_index(to.0, to.1)]
-    // }
-    //
-    // pub fn at_range_mut(&mut self, from: (isize, isize), to: (isize, isize)) -> &[T] {
-    //     let index_from = self.to_index(from.0, from.1);
-    //     let index_to = self.to_index(to.0, to.1);
-    //
-    //     &mut self.inner[index_from..index_to]
-    // }
-
     pub fn growing_at_mut(&mut self, row: isize, column: isize) -> &mut T
     where
         T: Default + Debug,
@@ -88,35 +77,29 @@ impl<T> Vec2D<T> {
 
         // Check if we need to grow in the positive axis
         if column >= self.width as isize {
-            let missing = ((column - self.width as isize) + 1) as usize;
+            let missing = (column as usize - self.width) + 1;
 
-            // Extend capacity // TODO: Fix reservesusize
-            self.inner.reserve(missing * self.height);
-            println!("grow width");
-            for i in (0..(self.height + self.negative_height)) {
-                let index = self.to_index(i as isize, (self.width + self.negative_width) as isize) - 1;
-                println!("\t idnex / {i} - {} = {index}", self.width + self.negative_width);
-                for _ in 0..missing { // TODO: Optimize this
-                    //self.width * (i + 1) + (i * missing) + self.negative_width
+            // Extend capacity
+            self.inner.reserve(missing * (self.height + self.negative_height));
+
+            for i in 0..self.height {
+                for _ in 0..missing {
                     self.inner
-                        .insert(index, T::default());
+                        .insert(self.width * (i + 1) + (i * missing), T::default());
                 }
             }
 
             self.width += missing;
         }
 
-        println!("after width");
-        dbg!(&self);
-
         if row >= self.height as isize {
-            let missing = ((row - self.height as isize) + 1) as usize;
+            let missing = (row as usize - self.height) + 1;
 
             // Extend capacity
-            self.inner.reserve(missing * self.width);
+            self.inner.reserve(missing * (self.width + self.negative_width));
 
             for _ in 0..missing {
-                for _ in 0..self.width { // TODO: Optimize this
+                for _ in 0..self.width {
                     self.push(T::default());
                 }
             }
@@ -124,9 +107,26 @@ impl<T> Vec2D<T> {
             self.height += missing;
         }
 
-        println!("after height");
-        dbg!(&self);
+        // Check if we need to grow in negative axis
+        if column < -(self.negative_width as isize) {
+            println!("grow in negative width");
+            let missing = (column + self.negative_width as isize).abs() as usize;
+            println!("missing = {missing}");
+            // TODO: reserve
 
+            // Grow every row (including the negative ones
+            for i in (0..self.height + self.negative_height).rev() {
+                let index = self.to_index(i as isize, 0);
+                println!("\tgrowing row = {i} @ {index}");
+                for _ in 0..missing {
+                    self.inner.insert(index, T::default());
+                }
+            }
+
+            self.negative_width += missing;
+        }
+
+        /*
         // Check if we need to grow in the negative axis
         if column < self.negative_width as isize {
             let missing = (column + self.negative_width as isize).abs() as usize;
@@ -160,6 +160,7 @@ impl<T> Vec2D<T> {
             self.negative_height += missing;
 
         }
+         */
 
         self.at_mut(row, column)
     }
@@ -178,15 +179,13 @@ impl<T> Vec2D<T> {
         let row_adjusted = (row + self.negative_height as isize) as usize;
         let column_adjusted = (column + self.negative_width as isize) as usize;
 
-       let adjusted_index =  (row_adjusted * (self.width + self.negative_width)) + column_adjusted;
+       let adjusted_index = (row_adjusted * (self.width + self.negative_width)) + column_adjusted;
 
-        println!("- {row},{column} / {},{} = {}", row_adjusted, column_adjusted, adjusted_index);
         adjusted_index
 
     }
 }
 
-// TODO: Debug doesn't work in negatives yet
 impl<T> Debug for Vec2D<T>
 where
     T: Debug,
@@ -234,51 +233,131 @@ mod tests {
         assert_eq!(&8, vec2d.at(2, 1));
     }
 
-    #[test]
-    fn growing_works() {
-        let mut vec2d: Vec2D<i32> = Vec2D::default();
+    mod growing {
+        use super::*;
 
-        *vec2d.growing_at_mut(0, 0) = 1;
-        let expected = Vec2D::from(vec![1], 1, 1);
-        assert_eq!(expected, vec2d);
+        #[test]
+        fn growing_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::default();
 
-        *vec2d.growing_at_mut(2, 2) = 2;
-        let expected = Vec2D::from(
-            vec![
-                1, 0, 0, //
-                0, 0, 0, //
-                0, 0, 2, //
-            ],
-            3,
-            3,
-        );
-        assert_eq!(expected, vec2d);
+            *vec2d.growing_at_mut(0, 0) = 1;
+            let expected = Vec2D::from(vec![1], 1, 1);
+            assert_eq!(expected, vec2d);
 
-        *vec2d.growing_at_mut(2, 4) = 3;
-        let expected = Vec2D::from(
-            vec![
-                1, 0, 0, 0, 0, //
-                0, 0, 0, 0, 0, //
-                0, 0, 2, 0, 3, //
-            ],
-            5,
-            3,
-        );
-        assert_eq!(expected, vec2d);
+            *vec2d.growing_at_mut(2, 2) = 2;
+            let expected = Vec2D::from(
+                vec![
+                    1, 0, 0, //
+                    0, 0, 0, //
+                    0, 0, 2, //
+                ],
+                3,
+                3,
+            );
+            assert_eq!(expected, vec2d);
 
-        *vec2d.growing_at_mut(4, 1) = 4;
-        let expected = Vec2D::from(
-            vec![
-                1, 0, 0, 0, 0, //
-                0, 0, 0, 0, 0, //
-                0, 0, 2, 0, 3, //
-                0, 0, 0, 0, 0, //
-                0, 4, 0, 0, 0, //
-            ],
-            5,
-            5,
-        );
-        assert_eq!(expected, vec2d);
+            *vec2d.growing_at_mut(2, 4) = 3;
+            let expected = Vec2D::from(
+                vec![
+                    1, 0, 0, 0, 0, //
+                    0, 0, 0, 0, 0, //
+                    0, 0, 2, 0, 3, //
+                ],
+                5,
+                3,
+            );
+            assert_eq!(expected, vec2d);
+
+            *vec2d.growing_at_mut(4, 1) = 4;
+            let expected = Vec2D::from(
+                vec![
+                    1, 0, 0, 0, 0, //
+                    0, 0, 0, 0, 0, //
+                    0, 0, 2, 0, 3, //
+                    0, 0, 0, 0, 0, //
+                    0, 4, 0, 0, 0, //
+                ],
+                5,
+                5,
+            );
+            assert_eq!(expected, vec2d);
+        }
+
+        // TODO: Grow with negative width and positive height
+        // TODO: Grow with negative width and negative height
+
+        #[test]
+        fn growing_width_with_negative_width_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from_negative(vec![1, 0], 1, 1, 1, 0);
+
+            *vec2d.growing_at_mut(0, 3) = 9;
+
+            let expected = Vec2D::from_negative(vec![1, 0, 0, 0, 9], 4, 1, 1, 0);
+            dbg!(&vec2d);
+            assert_eq!(expected, vec2d);
+        }
+
+        #[test]
+        fn growing_to_negative_width_1_height_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from(vec![1], 1, 1);
+
+            *vec2d.growing_at_mut(0, -4) = 9;
+
+            let mut expected = Vec2D::from_negative(vec![
+                9, 0, 0, 0, 1
+            ], 1, 1, 4, 0);
+            dbg!(&vec2d);
+            assert_eq!(expected, vec2d);
+        }
+
+        #[test]
+        fn growing_to_negative_width_3_height_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from(vec![
+                1, 2, //
+                3, 4, //
+                5, 6, //
+            ], 2, 3);
+
+            *vec2d.growing_at_mut(1, -4) = 9;
+
+            let expected = Vec2D::from_negative(vec![
+                0, 0, 0, 0, 1, 2, //
+                9, 0, 0, 0, 3, 4, //
+                0, 0, 0, 0, 5, 6, //
+            ], 2, 3, 4, 0);
+            assert_eq!(expected, vec2d);
+        }
+
+        // TODO: Growing to negative width with negative height
+
+        #[test]
+        fn growing_height_with_negative_height_works() {
+            let mut vec2d: Vec2D<i32> = Vec2D::from_negative(vec![
+                4, //
+                3, //
+                2, //
+                1, //
+                0, //
+            ], 1, 1, 0, 4);
+
+            *vec2d.growing_at_mut(3, 0) = 9;
+
+            let expected = Vec2D::from_negative(vec![
+                4, //
+                3, //
+                2, //
+                1, //
+                0, // 0, 0
+                0, //
+                0, //
+                9, //
+            ], 1, 4, 0, 4);
+            dbg!(&vec2d);
+            assert_eq!(expected, vec2d);
+        }
+
+        // TODO: growing_to_negative_height_1_width
+        // TODO: growing_to_negative_height_3_width
     }
 
     #[test]
@@ -294,86 +373,6 @@ mod tests {
         assert_eq!(&9, vec2d.at(-1, -1));
         assert_eq!(&4, vec2d.at(-2, -1));
         assert_eq!(&5, vec2d.at(-2, 0));
-    }
-
-    #[test]
-    fn growing_negatively_works() {
-        struct Char(char);
-
-        impl Default for Char {
-            fn default() -> Self {
-                Self('.')
-            }
-        }
-
-        impl Debug for Char {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{:?}", self.0)
-            }
-        }
-
-        // let mut vec2d: Vec2D<Char> = Vec2D::from(vec![Char('X'), Char('Y')], 1, 2);
-        //
-        // dbg!(&vec2d);
-        //
-        // *vec2d.growing_at_mut(1, -3) = Char('A');
-        //
-        // dbg!(&vec2d);
-
-        // let mut a = Vec2D::from_negative(vec![
-        //     '.', '.', '.', 'X', //
-        //     'A', '.', '.', 'Y', //
-        // ], 1, 2, 3, 0);
-        //
-        // assert_eq!(&'A', a.at(1, -3));
-
-
-        let mut vec2d: Vec2D<i32> = Vec2D::from(vec![
-            1, 0, 0, //
-            0, 2, 0, //
-            0, 0, 3, //
-        ], 3, 3);
-
-        *vec2d.growing_at_mut(-1, 0) = 4;
-        let expected = Vec2D::from_negative(
-            vec![
-                4, 0, 0, // row -1, column 0
-                1, 0, 0, //
-                0, 2, 0, //
-                0, 0, 3, //
-            ],
-            3,
-            3,
-            0,
-            1
-        );
-        assert_eq!(expected, vec2d);
-
-        *vec2d.growing_at_mut(1, -3) = 5;
-        dbg!(&vec2d);
-        // Insertions should go
-        // For first column, insert at:
-        //      0 (before 4)
-        //
-        let expected = Vec2D::from_negative(
-            vec![
-                0, 0, 0, 4, 0, 0, // row -1
-                0, 0, 0, 1, 0, 0, //
-                5, 0, 0, 0, 2, 0, // row 1, column -3
-                0, 0, 0, 0, 0, 3, //
-            ],
-            3,
-            3,
-            3,
-            1
-        );
-        assert_eq!(expected, vec2d);
-
-        dbg!(&vec2d);
-
-        *vec2d.growing_at_mut(3, 3) = 6;
-
-        dbg!(&vec2d);
     }
 
     mod it_generates_correct_vec_index {
