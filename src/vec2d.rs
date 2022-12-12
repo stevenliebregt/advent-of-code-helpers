@@ -10,15 +10,57 @@ pub struct Vec2D<T> {
 }
 
 impl<T> Vec2D<T> {
+    pub fn new_sized(
+        positive_width: usize,
+        positive_height: usize,
+        negative_width: usize,
+        negative_height: usize,
+    ) -> Self {
+        Self {
+            inner: Vec::with_capacity(
+                (positive_width + negative_width) * (positive_height + negative_height),
+            ),
+            positive_width,
+            positive_height,
+            negative_width,
+            negative_height,
+        }
+    }
+
+    pub fn new_sized_with(
+        positive_width: usize,
+        positive_height: usize,
+        negative_width: usize,
+        negative_height: usize,
+        value: T,
+    ) -> Self
+    where
+        T: Clone,
+    {
+        let size = (positive_width + negative_width) * (positive_height + negative_height);
+
+        Self {
+            inner: vec![value; size],
+            positive_width,
+            positive_height,
+            negative_width,
+            negative_height,
+        }
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self::with_capacity_and_size(capacity, 0, 0)
     }
 
-    pub fn with_capacity_and_size(capacity: usize, width: usize, height: usize) -> Self {
+    pub fn with_capacity_and_size(
+        capacity: usize,
+        positive_width: usize,
+        positive_height: usize,
+    ) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
-            positive_width: width,
-            positive_height: height,
+            positive_width,
+            positive_height,
             negative_width: 0,
             negative_height: 0,
         }
@@ -50,6 +92,30 @@ impl<T> Vec2D<T> {
         }
     }
 
+    pub fn positive_width(&self) -> usize {
+        self.positive_width
+    }
+
+    pub fn negative_width(&self) -> usize {
+        self.negative_width
+    }
+
+    pub fn width(&self) -> usize {
+        self.positive_width + self.negative_width
+    }
+
+    pub fn positive_height(&self) -> usize {
+        self.positive_height
+    }
+
+    pub fn negative_height(&self) -> usize {
+        self.negative_height
+    }
+
+    pub fn height(&self) -> usize {
+        self.positive_height + self.negative_height
+    }
+
     pub fn push(&mut self, item: T) {
         self.inner.push(item);
     }
@@ -61,16 +127,27 @@ impl<T> Vec2D<T> {
         self.inner.extend(iter);
     }
 
-    pub fn at(&self, row: isize, column: isize) -> &T {
+    pub fn at_unchecked(&self, row: isize, column: isize) -> &T {
         &self.inner[self.to_index(row, column)]
     }
 
-    pub fn at_mut(&mut self, row: isize, column: isize) -> &mut T {
+    pub fn at_mut_unchecked(&mut self, row: isize, column: isize) -> &mut T {
         let index = self.to_index(row, column);
 
         &mut self.inner[index]
     }
 
+    pub fn at(&self, row: isize, column: isize) -> Option<&T> {
+        self.inner.get(self.to_index(row, column))
+    }
+
+    pub fn at_mut(&mut self, row: isize, column: isize) -> Option<&mut T> {
+        let index = self.to_index(row, column);
+
+        self.inner.get_mut(index)
+    }
+
+    /// Access the indicated position mutably, and grow if it lies outside of the current size.
     pub fn growing_at_mut(&mut self, row: isize, column: isize) -> &mut T
     where
         T: Default + Debug,
@@ -152,7 +229,8 @@ impl<T> Vec2D<T> {
             self.negative_height += missing;
         }
 
-        self.at_mut(row, column)
+        // Don't need to check, we grow if we're too small
+        self.at_mut_unchecked(row, column)
     }
 
     pub fn set_size(&mut self, width: usize, height: usize) {
@@ -169,7 +247,11 @@ impl<T> Vec2D<T> {
         let row_adjusted = (row + self.negative_height as isize) as usize;
         let column_adjusted = (column + self.negative_width as isize) as usize;
 
-        (row_adjusted * (self.positive_width + self.negative_width)) + column_adjusted
+        row_adjusted
+            .saturating_mul(self.positive_width.saturating_add(self.negative_width))
+            .saturating_add(column_adjusted)
+
+        // (row_adjusted * (self.positive_width + self.negative_width)) + column_adjusted
     }
 }
 
@@ -214,10 +296,10 @@ mod tests {
 
         assert_eq!((3, 3), vec2d.size());
 
-        assert_eq!(&1, vec2d.at(0, 0));
-        assert_eq!(&3, vec2d.at(0, 2));
-        assert_eq!(&4, vec2d.at(1, 0));
-        assert_eq!(&8, vec2d.at(2, 1));
+        assert_eq!(&1, vec2d.at_unchecked(0, 0));
+        assert_eq!(&3, vec2d.at_unchecked(0, 2));
+        assert_eq!(&4, vec2d.at_unchecked(1, 0));
+        assert_eq!(&8, vec2d.at_unchecked(2, 1));
     }
 
     mod growing {
@@ -580,9 +662,9 @@ mod tests {
             2,
         );
 
-        assert_eq!(&9, vec2d.at(-1, -1));
-        assert_eq!(&4, vec2d.at(-2, -1));
-        assert_eq!(&5, vec2d.at(-2, 0));
+        assert_eq!(&9, vec2d.at_unchecked(-1, -1));
+        assert_eq!(&4, vec2d.at_unchecked(-2, -1));
+        assert_eq!(&5, vec2d.at_unchecked(-2, 0));
     }
 
     mod it_generates_correct_vec_index {
