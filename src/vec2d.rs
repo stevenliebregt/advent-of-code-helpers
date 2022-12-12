@@ -255,6 +255,15 @@ impl<T> Vec2D<T> {
     }
 }
 
+impl<T> IntoIterator for Vec2D<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
 impl<T> Debug for Vec2D<T>
 where
     T: Debug,
